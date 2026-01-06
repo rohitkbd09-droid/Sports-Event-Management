@@ -183,3 +183,6 @@ The application is fully responsive and works on:
 
 This project is open source and available for educational purposes.
 
+## Credits
+Done by srinivasreddygaalla for surya
+

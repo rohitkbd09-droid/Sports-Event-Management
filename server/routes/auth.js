@@ -14,12 +14,14 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user already exists
-    const [existingUsers] = await db.promise.query(
+    const connection = await db.promise.getConnection();
+    const [existingUsers] = await connection.query(
       'SELECT id FROM users WHERE email = ?',
       [email]
     );
 
     if (existingUsers.length > 0) {
+      connection.release();
       return res.status(400).json({ message: 'User already exists with this email' });
     }
 
@@ -27,10 +29,12 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert user
-    const [result] = await db.promise.query(
+    const [result] = await connection.query(
       'INSERT INTO users (name, email, phone, password) VALUES (?, ?, ?, ?)',
       [name, email, phone, hashedPassword]
     );
+
+    connection.release();
 
     const token = jwt.sign(
       { id: result.insertId, email, role: 'user' },
@@ -59,16 +63,19 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user
-    const [users] = await db.promise.query(
+    const connection = await db.promise.getConnection();
+    const [users] = await connection.query(
       'SELECT * FROM users WHERE email = ?',
       [email]
     );
 
     if (users.length === 0) {
+      connection.release();
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const user = users[0];
+    connection.release();
 
     // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
@@ -99,6 +106,11 @@ router.post('/login', async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error during login' });
   }
+});
+
+// Logout
+router.post('/logout', (req, res) => {
+  res.json({ message: 'Logout successful' });
 });
 
 module.exports = router;

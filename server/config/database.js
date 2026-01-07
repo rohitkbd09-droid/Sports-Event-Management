@@ -11,7 +11,8 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME || 'sports_events_db',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  ssl: process.env.DB_HOST && process.env.DB_HOST.includes('aivencloud') ? { rejectUnauthorized: false } : undefined
 });
 
 const promisePool = pool.promise();
@@ -21,12 +22,19 @@ const initDatabase = async () => {
   try {
     // Create database if it doesn't exist
     const mysqlPromise = require('mysql2/promise');
-    const connection = await mysqlPromise.createConnection({
+    const connectionConfig = {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 3306,
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || ''
-    });
+    };
+    
+    // Add SSL for Aiven
+    if (process.env.DB_HOST && process.env.DB_HOST.includes('aivencloud')) {
+      connectionConfig.ssl = { rejectUnauthorized: false };
+    }
+    
+    const connection = await mysqlPromise.createConnection(connectionConfig);
     
     const dbName = process.env.DB_NAME || 'sports_events_db';
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);

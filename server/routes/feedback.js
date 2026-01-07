@@ -5,6 +5,7 @@ const db = require('../config/database');
 
 // Submit feedback
 router.post('/', authenticate, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     const { event_id, rating, comment } = req.body;
     const user_id = req.user.id;
@@ -18,7 +19,7 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     // Check if user participated in the event
-    const [registrations] = await db.promise.query(
+    const [registrations] = await connection.query(
       'SELECT * FROM registrations WHERE user_id = ? AND event_id = ? AND participation_status = ?',
       [user_id, event_id, 'participated']
     );
@@ -28,14 +29,14 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     // Check if feedback already exists
-    const [existing] = await db.promise.query(
+    const [existing] = await connection.query(
       'SELECT * FROM feedback WHERE user_id = ? AND event_id = ?',
       [user_id, event_id]
     );
 
     if (existing.length > 0) {
       // Update existing feedback
-      await db.promise.query(
+      await connection.query(
         'UPDATE feedback SET rating = ?, comment = ? WHERE user_id = ? AND event_id = ?',
         [rating, comment || null, user_id, event_id]
       );
@@ -43,7 +44,7 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     // Create new feedback
-    await db.promise.query(
+    await connection.query(
       'INSERT INTO feedback (user_id, event_id, rating, comment) VALUES (?, ?, ?, ?)',
       [user_id, event_id, rating, comment || null]
     );
@@ -52,15 +53,18 @@ router.post('/', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error submitting feedback:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Get user's feedback
 router.get('/my-feedback', authenticate, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     const user_id = req.user.id;
 
-    const [feedback] = await db.promise.query(`
+    const [feedback] = await connection.query(`
       SELECT f.*, e.event_name, e.sport_type, e.event_date
       FROM feedback f
       JOIN events e ON f.event_id = e.id
@@ -72,17 +76,20 @@ router.get('/my-feedback', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error fetching feedback:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Get feedback for a specific event (Admin)
 router.get('/event/:event_id', authenticate, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
     }
 
-    const [feedback] = await db.promise.query(`
+    const [feedback] = await connection.query(`
       SELECT f.*, u.name as user_name, u.email as user_email, e.event_name
       FROM feedback f
       JOIN users u ON f.user_id = u.id
@@ -95,6 +102,8 @@ router.get('/event/:event_id', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error fetching feedback:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 

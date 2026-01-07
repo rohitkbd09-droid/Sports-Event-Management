@@ -5,8 +5,9 @@ const db = require('../config/database');
 
 // Get all registrations (Admin only)
 router.get('/registrations', authenticate, isAdmin, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
-    const [registrations] = await db.promise.query(`
+    const [registrations] = await connection.query(`
       SELECT r.*, u.name as user_name, u.email as user_email, u.phone as user_phone,
              e.event_name, e.sport_type, e.event_date, e.venue
       FROM registrations r
@@ -19,13 +20,16 @@ router.get('/registrations', authenticate, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching registrations:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Get all users (Admin only)
 router.get('/users', authenticate, isAdmin, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
-    const [users] = await db.promise.query(
+    const [users] = await connection.query(
       'SELECT id, name, email, phone, role, created_at FROM users ORDER BY created_at DESC'
     );
 
@@ -33,13 +37,16 @@ router.get('/users', authenticate, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Get all feedback (Admin only)
 router.get('/feedback', authenticate, isAdmin, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
-    const [feedback] = await db.promise.query(`
+    const [feedback] = await connection.query(`
       SELECT f.*, u.name as user_name, u.email as user_email,
              e.event_name, e.sport_type, e.event_date
       FROM feedback f
@@ -52,19 +59,22 @@ router.get('/feedback', authenticate, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching feedback:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Get reports (Admin only)
 router.get('/reports', authenticate, isAdmin, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     // Total registrations
-    const [totalRegistrations] = await db.promise.query(
+    const [totalRegistrations] = await connection.query(
       'SELECT COUNT(*) as total FROM registrations'
     );
 
     // Event-wise participation
-    const [eventParticipation] = await db.promise.query(`
+    const [eventParticipation] = await connection.query(`
       SELECT 
         e.id,
         e.event_name,
@@ -79,7 +89,7 @@ router.get('/reports', authenticate, isAdmin, async (req, res) => {
     `);
 
     // Feedback summary
-    const [feedbackSummary] = await db.promise.query(`
+    const [feedbackSummary] = await connection.query(`
       SELECT 
         e.id,
         e.event_name,
@@ -99,6 +109,8 @@ router.get('/reports', authenticate, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error generating reports:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 

@@ -5,6 +5,7 @@ const db = require('../config/database');
 
 // Register for an event
 router.post('/', authenticate, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     const { event_id } = req.body;
     const user_id = req.user.id;
@@ -14,7 +15,7 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     // Check if event exists and registration deadline hasn't passed
-    const [events] = await db.promise.query(
+    const [events] = await connection.query(
       'SELECT * FROM events WHERE id = ?',
       [event_id]
     );
@@ -32,7 +33,7 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     // Check if already registered
-    const [existing] = await db.promise.query(
+    const [existing] = await connection.query(
       'SELECT * FROM registrations WHERE user_id = ? AND event_id = ?',
       [user_id, event_id]
     );
@@ -42,7 +43,7 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     // Register
-    await db.promise.query(
+    await connection.query(
       'INSERT INTO registrations (user_id, event_id) VALUES (?, ?)',
       [user_id, event_id]
     );
@@ -51,15 +52,18 @@ router.post('/', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Get user's registrations
 router.get('/my-registrations', authenticate, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     const user_id = req.user.id;
 
-    const [registrations] = await db.promise.query(`
+    const [registrations] = await connection.query(`
       SELECT r.*, e.event_name, e.sport_type, e.event_date, e.venue, e.registration_deadline
       FROM registrations r
       JOIN events e ON r.event_id = e.id
@@ -71,17 +75,20 @@ router.get('/my-registrations', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error fetching registrations:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Mark participation
 router.put('/:id/participate', authenticate, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     const registration_id = req.params.id;
     const user_id = req.user.id;
 
     // Verify ownership
-    const [registrations] = await db.promise.query(
+    const [registrations] = await connection.query(
       'SELECT * FROM registrations WHERE id = ? AND user_id = ?',
       [registration_id, user_id]
     );
@@ -90,7 +97,7 @@ router.put('/:id/participate', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Registration not found' });
     }
 
-    await db.promise.query(
+    await connection.query(
       'UPDATE registrations SET participation_status = ? WHERE id = ?',
       ['participated', registration_id]
     );
@@ -99,6 +106,8 @@ router.put('/:id/participate', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error updating participation:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 

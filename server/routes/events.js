@@ -5,8 +5,9 @@ const db = require('../config/database');
 
 // Get all events (public)
 router.get('/', async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
-    const [events] = await db.promise.query(`
+    const [events] = await connection.query(`
       SELECT e.*, u.name as created_by_name
       FROM events e
       LEFT JOIN users u ON e.created_by = u.id
@@ -17,13 +18,16 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Error fetching events:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Get single event
 router.get('/:id', async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
-    const [events] = await db.promise.query(`
+    const [events] = await connection.query(`
       SELECT e.*, u.name as created_by_name
       FROM events e
       LEFT JOIN users u ON e.created_by = u.id
@@ -38,11 +42,14 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error fetching event:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Create event (Admin only)
 router.post('/', authenticate, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
@@ -54,13 +61,13 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'All required fields must be provided' });
     }
 
-    const [result] = await db.promise.query(
+    const [result] = await connection.query(
       `INSERT INTO events (event_name, sport_type, event_date, venue, registration_deadline, description, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [event_name, sport_type, event_date, venue, registration_deadline, description || null, req.user.id]
     );
 
-    const [newEvent] = await db.promise.query(
+    const [newEvent] = await connection.query(
       'SELECT * FROM events WHERE id = ?',
       [result.insertId]
     );
@@ -69,11 +76,14 @@ router.post('/', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error creating event:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Update event (Admin only)
 router.put('/:id', authenticate, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
@@ -81,14 +91,14 @@ router.put('/:id', authenticate, async (req, res) => {
 
     const { event_name, sport_type, event_date, venue, registration_deadline, description } = req.body;
 
-    await db.promise.query(
+    await connection.query(
       `UPDATE events 
        SET event_name = ?, sport_type = ?, event_date = ?, venue = ?, registration_deadline = ?, description = ?
        WHERE id = ?`,
       [event_name, sport_type, event_date, venue, registration_deadline, description || null, req.params.id]
     );
 
-    const [updatedEvent] = await db.promise.query(
+    const [updatedEvent] = await connection.query(
       'SELECT * FROM events WHERE id = ?',
       [req.params.id]
     );
@@ -101,17 +111,20 @@ router.put('/:id', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error updating event:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 // Delete event (Admin only)
 router.delete('/:id', authenticate, async (req, res) => {
+  const connection = await db.promise.getConnection();
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
     }
 
-    const [result] = await db.promise.query(
+    const [result] = await connection.query(
       'DELETE FROM events WHERE id = ?',
       [req.params.id]
     );
@@ -124,6 +137,8 @@ router.delete('/:id', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error deleting event:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
